@@ -2,7 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getDatabase, ref, push, onValue, remove, update } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js';
 
 const appSettings = {
-    databaseURL: "https://mylist-aryadeepit-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    databaseURL: "https://pastillerito-3f2dd-default-rtdb.firebaseio.com/"
 }
 
 const app = initializeApp(appSettings);
