@@ -1,23 +1,33 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
-import { getDatabase, ref, push, onValue, remove, update } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js';
+// Importar las funciones necesarias de Firebase
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
+import { getDatabase, ref, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
 
-const appSettings = {
-    databaseURL: "https://pastillerito-5e274-default-rtdb.firebaseio.com/"
-}
+// Configuración de Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyCrGlKaM7KqkidxCROJoI6NLZutknlRj2E",
+    authDomain: "pastillerito-5e274.firebaseapp.com",
+    databaseURL: "https://pastillerito-5e274-default-rtdb.firebaseio.com",
+    projectId: "pastillerito-5e274",
+    storageBucket: "pastillerito-5e274.appspot.com",
+    messagingSenderId: "79478299190",
+    appId: "1:79478299190:web:e79376671482f8ac16d697"
+};
 
-const app = initializeApp(appSettings);
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const alarmsInDB = ref(database, 'alarms');
 
+// Referencias a elementos de la interfaz
 const inputField = document.getElementById('alarm-time');
 const setAlarmButton = document.getElementById('set-alarm-button');
 const alarmStatus = document.getElementById('alarm-status');
 const alarmList = document.getElementById('alarm-list');
 
 // Configurar alarma
-setAlarmButton.addEventListener('click', function() {
+setAlarmButton.addEventListener('click', function () {
     const alarmTime = inputField.value;
-    
+
     if (alarmTime) {
         // Guardar la hora de la alarma en Firebase
         push(alarmsInDB, alarmTime);
@@ -31,7 +41,7 @@ setAlarmButton.addEventListener('click', function() {
 });
 
 // Monitorear las alarmas en la base de datos
-onValue(alarmsInDB, function(snapshot) {
+onValue(alarmsInDB, function (snapshot) {
     if (snapshot.exists()) {
         const alarmsArray = Object.entries(snapshot.val());
 
@@ -61,8 +71,10 @@ onValue(alarmsInDB, function(snapshot) {
 // Función para verificar si es hora de activar la alarma
 function isAlarmTime(alarmDate) {
     const currentDate = new Date();
-    return currentDate.getHours() === alarmDate.getHours() &&
-           currentDate.getMinutes() === alarmDate.getMinutes();
+    return (
+        currentDate.getHours() === alarmDate.getHours() &&
+        currentDate.getMinutes() === alarmDate.getMinutes()
+    );
 }
 
 // Función para agregar alarma a la lista en la interfaz
@@ -73,7 +85,7 @@ function appendAlarmToList(alarmID, alarmTime) {
     // Agregar un botón para eliminar la alarma
     const removeButton = document.createElement('button');
     removeButton.textContent = 'Remove';
-    removeButton.addEventListener('click', function() {
+    removeButton.addEventListener('click', function () {
         // Usar alarmID para eliminar la alarma correcta de Firebase
         const alarmRef = ref(database, `alarms/${alarmID}`);
         remove(alarmRef)
@@ -81,7 +93,7 @@ function appendAlarmToList(alarmID, alarmTime) {
                 console.log(`Alarm at ${alarmTime} removed successfully.`);
             })
             .catch((error) => {
-                console.error("Error removing alarm:", error);
+                console.error('Error removing alarm:', error);
             });
     });
 
