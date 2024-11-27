@@ -1,6 +1,6 @@
 // Importar las funciones necesarias de Firebase
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
-import { getDatabase, ref, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
+import { getDatabase, ref, push, onValue, remove, set, update } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
 
 // Configuración de Firebase
 const firebaseConfig = {
@@ -17,6 +17,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const alarmsInDB = ref(database, 'alarms');
+const idCounterRef = ref(database, 'idCounter');
+
+// Inicializar contador si no existe
+onValue(idCounterRef, (snapshot) => {
+    if (!snapshot.exists()) {
+        set(idCounterRef, 1); // Inicializar contador en 1
+    }
+});
 
 // Referencias a elementos de la interfaz
 const inputField = document.getElementById('alarm-time');
@@ -29,12 +37,24 @@ setAlarmButton.addEventListener('click', function () {
     const alarmTime = inputField.value;
 
     if (alarmTime) {
-        // Guardar la hora de la alarma en Firebase
-        push(alarmsInDB, alarmTime);
-        alarmStatus.textContent = `Alarm set for ${alarmTime}.`;
+        // Obtener y actualizar el contador
+        onValue(idCounterRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const newID = snapshot.val();
+                const alarmRef = ref(database, `alarms/${newID}`);
 
-        // Limpiar campo de entrada
-        inputField.value = '';
+                // Guardar la alarma con el nuevo ID
+                set(alarmRef, alarmTime)
+                    .then(() => {
+                        alarmStatus.textContent = `Alarm set for ${alarmTime}.`;
+                        inputField.value = ''; // Limpiar campo
+                        set(idCounterRef, newID + 1); // Incrementar el contador
+                    })
+                    .catch((error) => {
+                        console.error('Error setting alarm:', error);
+                    });
+            }
+        }, { onlyOnce: true });
     } else {
         alarmStatus.textContent = 'Please set a valid time.';
     }
@@ -43,54 +63,35 @@ setAlarmButton.addEventListener('click', function () {
 // Monitorear las alarmas en la base de datos
 onValue(alarmsInDB, function (snapshot) {
     if (snapshot.exists()) {
-        const alarmsArray = Object.entries(snapshot.val());
+        const alarmsArray = Object.entries(snapshot.val()).sort(
+            ([idA], [idB]) => idA - idB
+        );
 
         // Limpiar lista actual de alarmas
         clearAlarmList();
 
         // Iterar por todas las alarmas y mostrar
         alarmsArray.forEach(([alarmID, alarmTime]) => {
-            // Mostrar cada alarma en la lista
             appendAlarmToList(alarmID, alarmTime);
-
-            // Verificar si es hora de activar la alarma
-            const alarmDate = new Date();
-            const [hours, minutes] = alarmTime.split(':').map(Number);
-            alarmDate.setHours(hours, minutes, 0, 0);
-
-            if (isAlarmTime(alarmDate)) {
-                alert(`ALARM: Time's up! It's now ${alarmTime}.`);
-                // Eliminar la alarma después de que se active
-                const alarmRef = ref(database, `alarms/${alarmID}`);
-                remove(alarmRef);
-            }
         });
     }
 });
 
-// Función para verificar si es hora de activar la alarma
-function isAlarmTime(alarmDate) {
-    const currentDate = new Date();
-    return (
-        currentDate.getHours() === alarmDate.getHours() &&
-        currentDate.getMinutes() === alarmDate.getMinutes()
-    );
-}
-
 // Función para agregar alarma a la lista en la interfaz
 function appendAlarmToList(alarmID, alarmTime) {
     const alarmItem = document.createElement('li');
-    alarmItem.textContent = `Alarm at ${alarmTime}`;
+    alarmItem.textContent = `Alarm #${alarmID} at ${alarmTime}`;
 
     // Agregar un botón para eliminar la alarma
     const removeButton = document.createElement('button');
     removeButton.textContent = 'Remove';
     removeButton.addEventListener('click', function () {
-        // Usar alarmID para eliminar la alarma correcta de Firebase
+        // Eliminar la alarma de Firebase
         const alarmRef = ref(database, `alarms/${alarmID}`);
         remove(alarmRef)
             .then(() => {
-                console.log(`Alarm at ${alarmTime} removed successfully.`);
+                console.log(`Alarm #${alarmID} removed successfully.`);
+                reorderAlarms(); // Reordenar IDs
             })
             .catch((error) => {
                 console.error('Error removing alarm:', error);
@@ -99,6 +100,31 @@ function appendAlarmToList(alarmID, alarmTime) {
 
     alarmItem.appendChild(removeButton);
     alarmList.appendChild(alarmItem);
+}
+
+// Función para reordenar las alarmas y sus IDs
+function reorderAlarms() {
+    onValue(alarmsInDB, (snapshot) => {
+        if (snapshot.exists()) {
+            const alarmsArray = Object.entries(snapshot.val()).sort(
+                ([idA], [idB]) => idA - idB
+            );
+            const updates = {};
+            alarmsArray.forEach(([_, alarmTime], index) => {
+                updates[`alarms/${index + 1}`] = alarmTime;
+            });
+
+            // Actualizar IDs en Firebase
+            update(ref(database), updates)
+                .then(() => {
+                    console.log('Alarms reordered successfully.');
+                    set(idCounterRef, alarmsArray.length + 1); // Actualizar contador
+                })
+                .catch((error) => {
+                    console.error('Error reordering alarms:', error);
+                });
+        }
+    }, { onlyOnce: true });
 }
 
 // Función para limpiar la lista de alarmas en la interfaz
